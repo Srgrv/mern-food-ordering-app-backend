@@ -1,0 +1,51 @@
+import { Request, Response } from "express";
+import cloudinary from "cloudinary";
+
+//models
+import Restaurant from "../models/restaurant";
+import mongoose from "mongoose";
+
+const createMyRestaurant = async (req: Request, res: Response) => {
+  try {
+    const existingRestaurant = await Restaurant.findOne({ user: req.userId });
+
+    if (existingRestaurant) {
+      return res
+        .status(409)
+        .json({ message: "User restaurant already exists" });
+    }
+
+    const image = req.file as Express.Multer.File;
+    // Buffer.from(image.buffer): Создает новый объект буфера из бинарных данных изображения. image.buffer предположительно содержит бинарные данные изображения, доступные после загрузки.
+    // .toString("base64"): Преобразует содержимое буфера в строку, используя кодировку base64. Формат base64 представляет бинарные данные в виде ASCII-строки, что удобно для передачи через сеть или включения в код HTML или CSS.
+    const base64Image = Buffer.from(image.buffer).toString("base64");
+
+    // data:[<mediatype>][;base64],<data>
+    // `<mediatype>` – это тип данных, который вы внедряете, например, «image/jpeg» для изображений JPEG.
+    // «;base64» – указывает на кодировку в формате base64.
+    // `<data>` – собственно записи в кодировке base64.
+    // <img src=»data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QBtRXhpZgAATU0AKgAAAAgAA8EPAAIAAAAGAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAEKAD/2wBDAAoHBwkHBgoJCAkLCwoMDxkQDw4ODx4WFxIZJCAmJSMgIyIoLTkwKCo2KyIjMkQyNjs9QEBAJjBGS0U+Sjk/QD3/2wBDAQsLCw8NDx0QEB09KSMpPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT3/wAARCAABAAEDAREAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABUBAQEAAAAAAAAAAAAAAAAAAAEA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A93oyTkHXf/9k=» alt=»Пример изображения»>
+    const dataURI = `data:${image.mimetype};base64,${base64Image}`;
+
+    // cloudinary.v2.uploader.upload(dataURI): Метод upload принимает Data URI изображения в качестве параметра и загружает его на платформу Cloudinary.
+    // После успешной загрузки, Cloudinary возвращает ответ, который содержит информацию о загруженном изображении, такую как его публичный URL, размеры и другие метаданные.
+    const uploadResponse = await cloudinary.v2.uploader.upload(dataURI);
+
+    // Этот код создает новый объект ресторана (restaurant) на основе данных, полученных из запроса (req.body).
+    const restaurant = new Restaurant(req.body);
+    // Затем, после загрузки изображения на Cloudinary и получения ответа (uploadResponse), URL загруженного изображения присваивается свойству imageUrl объекта restaurant.
+    restaurant.imageUrl = uploadResponse.url;
+
+    restaurant.user = new mongoose.Types.ObjectId(req.userId);
+    restaurant.lastUpdated = new Date();
+
+    await restaurant.save();
+
+    res.status(201).send(restaurant);
+  } catch (error) {
+    // console.log(error);
+    res.status(500).json({ message: "Something went wrong", error: error });
+  }
+};
+
+export default { createMyRestaurant };
