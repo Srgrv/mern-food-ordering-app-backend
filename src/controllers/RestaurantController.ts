@@ -3,6 +3,25 @@ import { Request, Response, query } from "express";
 // models
 import Restaurant from "../models/restaurant";
 
+const getRestaurant = async (req: Request, res: Response) => {
+  try {
+    const restaurantId = req.params.restaurantId;
+
+    const restaurant = await Restaurant.findById(restaurantId);
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Ресторан не был найден" });
+    }
+
+    res.json(restaurant);
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Что-то пошло не так при получении ресторана" });
+  }
+};
+
 const searchRestaurants = async (req: Request, res: Response) => {
   try {
     // const city = req.params.city; - переменная city получает значение из динамического параметра :city маршрута. Это предполагает, что в маршруте было что-то вроде /search/London, где London будет значением переменной city.
@@ -105,4 +124,5 @@ const searchRestaurants = async (req: Request, res: Response) => {
 
 export default {
   searchRestaurants,
+  getRestaurant,
 };
